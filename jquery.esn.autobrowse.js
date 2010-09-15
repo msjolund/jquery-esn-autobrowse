@@ -27,7 +27,7 @@
  *                  clicks away from the page and then goes back, all items fetched will be rendered again, and the
  *                  user will see the same view as when he left the page. Requires http://www.jstorage.info/.
  *                  WARNING: This is experimental and doesn't work with original jStorage. A modified version is
- *                  available on http://github.com/msjolund/msjolund.github.com/tree/master/autobrowse/. jStorage also
+ *                  available on http://github.com/msjolund/jquery.esn.autobrowse.js. jStorage also
  *                  requires jquery-json: http://code.google.com/p/jquery-json/.
  *
  *
