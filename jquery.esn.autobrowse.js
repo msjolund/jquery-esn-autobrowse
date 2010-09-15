@@ -2,7 +2,7 @@
  * Written by Micael Sjölund, ESN (http://www.esn.me)
  *
  * Creates a growing container that automatically fills its content via ajax requests, when the user scrolls to the
- * bottom of the container.
+ * bottom of the container. Demo at http://msjolund.github.com/autobrowse/
  *
  * Requires jStorage (), if the useCache option is set to true. WARNING: Experimental. See below for more info.
  *
@@ -27,15 +27,9 @@
  *                  clicks away from the page and then goes back, all items fetched will be rendered again, and the
  *                  user will see the same view as when he left the page. Requires http://www.jstorage.info/.
  *                  WARNING: This is experimental and doesn't work with original jStorage. A modified version is
- *                  available on http://github.com/msjolund/jquery.esn.autobrowse.js. jStorage also
+ *                  available on http://github.com/msjolund/jquery-esn-autobrowse. jStorage also
  *                  requires jquery-json: http://code.google.com/p/jquery-json/.
  *
- *
- *
- *
- *
- * Example usage
- *           
  *
  *
  *
