@@ -34,7 +34,7 @@
  *
  *
  */
-
+(function( $ ){
 jQuery.fn.autobrowse = function (options)
 {
     var defaults = {
@@ -191,4 +191,4 @@ jQuery.fn.autobrowse = function (options)
         }
     });
 };
-
+})( jQuery );
