@@ -32,7 +32,6 @@
  *
  *
  *
- *
  */
 (function( $ ){
 jQuery.fn.autobrowse = function (options)
@@ -48,7 +47,7 @@ jQuery.fn.autobrowse = function (options)
         onComplete: function (response) {},
         useCache: false
     };
-    
+
     options = jQuery.extend(defaults, options);
 
     var getDataLength = function (data)
@@ -65,14 +64,14 @@ jQuery.fn.autobrowse = function (options)
         var localData, obj = jQuery(this);
         var currentOffset = options.offset;
         var loading = false;
-        
         var scrollTopUpdateTimer = null;
 
         var scrollCallback = function ()
         {
             var scrollTop = jQuery(window).scrollTop();
             var objBottom = obj.height() + obj.offset().top;
-            var winBtmPos = scrollTop + jQuery(window).height();
+            var winHeight = window.innerHeight ? window.innerHeight : $(window).height();
+            var winBtmPos = scrollTop + winHeight;
             if (scrollTopUpdateTimer)
                 clearTimeout(scrollTopUpdateTimer);
             scrollTopUpdateTimer = setTimeout(function () { jQuery.jStorage.set("autobrowseScrollTop", scrollTop); }, 200);
