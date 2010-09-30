@@ -1,4 +1,6 @@
 /**
+ * Version 1.1
+ *
  * Written by Micael Sjölund, ESN (http://www.esn.me)
  *
  * Creates a growing container that automatically fills its content via ajax requests, when the user scrolls to the
@@ -6,11 +8,21 @@
  *
  * Requires jStorage (), if the useCache option is set to true. WARNING: Somewhat experimental. See below for more info.
  *
- * @param options   Options that can be submitted to the plugin
  *
- * * REQUIRED OPTIONS
- * * urlBuilder     Callback to render url from offset and count arguments.
- *                  Example: function (offset, count) { return "http://baseurl/OFFSET/COUNT".replace(/OFFSET/, offset).replace(/COUNT/, count) }
+ * Usage:
+ * .autobrowse(options)
+ *    options   Map of property-value options which controls plugin behaviour.
+ * .autobrowse(command)
+ *    command   String command that can be sent to the plugin.
+ *
+ *
+ * * COMMANDS
+ * * "flush"        Clears the plugin cache
+ *
+ *
+ * * OPTIONS
+ * * url            Callback to render url from offset and count arguments.
+ *                  Example: function (offset, count) { return "http://mydomain.com/OFFSET/COUNT".replace(/OFFSET/, offset).replace(/COUNT/, count) }
  * * template       Callback to render markup from json response.
  *                  Example: function (response) { var markup=''; for (var i=0; i<response.length; i++) { markup+='<img src="'+response[i]+'" />' } return markup; }
  * * offset         Offset for first ajax call to url.
@@ -20,7 +32,7 @@
  *
  * * OPTIONAL OPTIONS
  * * loader         Element, jQuery object or markup to represent loader.
- * * onComplete     (optional) Callback that is run when the element has been updated with new content. This is run before the
+ * * onComplete     Callback that is run when the element has been updated with new content. This is run before the
  *                  response is stored (if using useCache), so it is possible to manipulate the response here before
  *                  it is stored.
  * * useCache       If true, the plugin will use browser storage to keep the state between page loads. If the user
@@ -28,7 +40,8 @@
  *                  user will see the same view as when he left the page. Requires http://www.jstorage.info/.
  *                  WARNING: This doesn't work with original jStorage. A modified version is
  *                  available on http://github.com/msjolund/jquery-esn-autobrowse. jStorage also
- *                  requires jquery-json: http://code.google.com/p/jquery-json/.
+ *                  requires jquery-json: http://code.google.com/p/jquery-json/. Default: false
+ * * expiration     How long to keep cache, in hours. Default: 24
  *
  *
  *
@@ -37,7 +50,7 @@
 jQuery.fn.autobrowse = function (options)
 {
     var defaults = {
-        urlBuilder: function (offset, count) { return "/"; },
+        url: function (offset, count) { return "/"; },
         template: function (response) { return ""; },
         offset: 0,
         count: 20,
@@ -45,10 +58,25 @@ jQuery.fn.autobrowse = function (options)
         loader: '<div class="loader"></div>',
         itemsReturned: null,
         onComplete: function (response) {},
-        useCache: false
+        useCache: false,
+        expiration: 24
     };
 
+    // flush cache command
+    if (typeof options == "string" && options == "flush")
+    {
+        jQuery.jStorage.flush();
+        return this;
+    }
+
     options = jQuery.extend(defaults, options);
+
+    // allow non-dynamic url
+    if (typeof options.url == "string")
+    {
+        var url = options.url
+        options.url = function (offset, count) { return url; }
+    }
 
     var getDataLength = function (data)
     {
@@ -57,7 +85,6 @@ jQuery.fn.autobrowse = function (options)
             length += options.itemsReturned(data[i]);
         return length;
     };
-
 
     return this.each( function ()
     {
@@ -80,8 +107,8 @@ jQuery.fn.autobrowse = function (options)
                 var loader = jQuery(options.loader);
                 loader.appendTo(obj);
                 loading = true;
-                jQuery.getJSON(options.urlBuilder(currentOffset, options.count), function (response) {
-                    // Check if this was the last items to fetch from the server, if so, stop listening
+                jQuery.getJSON(options.url(currentOffset, options.count), function (response) {
+                    // Check if these were the last items to fetch from the server, if so, stop listening
                     if (options.itemsReturned(response) + currentOffset >= options.totalCount || options.itemsReturned(response) == 0)
                     {
                         jQuery(window).unbind("scroll", scrollCallback);
@@ -133,8 +160,14 @@ jQuery.fn.autobrowse = function (options)
 
         if (options.useCache)
         {
-            if (jQuery.jStorage.get("autobrowseStorageKey") != options.urlBuilder(0,0))
+            if (jQuery.jStorage.get("autobrowseStorageKey") != options.url(0,0))
             {
+                // flush cache if wrong page
+                jQuery.jStorage.flush();
+            }
+            else if (jQuery.jStorage.get("autobrowseExpiration") && jQuery.jStorage.get("autobrowseExpiration") < (new Date()).getTime())
+            {
+                // flush cache if it's expired
                 jQuery.jStorage.flush();
             }
             localData= jQuery.jStorage.get("autobrowseStorage");
@@ -155,7 +188,7 @@ jQuery.fn.autobrowse = function (options)
                     var loader = jQuery(options.loader);
                     loader.appendTo(obj);
                     loading = true;
-                    jQuery.getJSON(options.urlBuilder(currentOffset, offsetDifference), function (response) {
+                    jQuery.getJSON(options.url(currentOffset, offsetDifference), function (response) {
                         // Create the markup and append it to the container
                         try { var markup = options.template(response); }
                         catch (e) { } // ignore for now
@@ -176,8 +209,10 @@ jQuery.fn.autobrowse = function (options)
             else
             {
                 localData = [];
+                jQuery.jStorage.get("autobrowseStorageKey")
+                jQuery.jStorage.set("autobrowseExpiration", (new Date()).getTime()+options.expiration*60*60*1000);
                 jQuery.jStorage.set("autobrowseOffset", currentOffset);
-                jQuery.jStorage.set("autobrowseStorageKey", options.urlBuilder(0, 0));
+                jQuery.jStorage.set("autobrowseStorageKey", options.url(0, 0));
                 jQuery.jStorage.set("autobrowseStorage", localData);
                 jQuery.jStorage.set("autobrowseScrollTop", 0);
                 startPlugin();
