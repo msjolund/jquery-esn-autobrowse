@@ -1,5 +1,5 @@
 /**
- * Version 1.1
+ * Version 2.0
  *
  * Written by Micael Sjölund, ESN (http://www.esn.me)
  *
@@ -21,20 +21,23 @@
  *
  *
  * * OPTIONS
- * * url            Callback to render url from offset and count arguments.
- *                  Example: function (offset, count) { return "http://mydomain.com/OFFSET/COUNT".replace(/OFFSET/, offset).replace(/COUNT/, count) }
+ * * url            Callback to render url from offset argument.
+ *                  Example: function (offset) { return "http://mydomain.com/OFFSET/20".replace(/OFFSET/, offset) }
  * * template       Callback to render markup from json response.
  *                  Example: function (response) { var markup=''; for (var i=0; i<response.length; i++) { markup+='<img src="'+response[i]+'" />' } return markup; }
- * * offset         Offset for first ajax call to url.
- * * count          Number of items to fetch.
- * * totalCount     Total number of items on server.
  * * itemsReturned  Callback that is run on ajax json response to determine how many items was returned
  *
  * * OPTIONAL OPTIONS
- * * loader         Element, jQuery object or markup to represent loader.
- * * onComplete     Callback that is run when the element has been updated with new content. This is run before the
- *                  response is stored (if using useCache), so it is possible to manipulate the response here before
+ * * loader         Element, jQuery object or markup to indicate to the user that the site is waiting for more items.
+ * * offset         Item offset for first ajax call to url, if you have already rendered items on the page
+ * * max            Maximum number of items to be retrieved by the plugin (can also be used to tell the plugin how many
+ *                  items there are in total on the server, so that no unneccesary requests are made.
+ * * complete       Callback that is run when the element has been updated with new content. This is run before the
+ *                  response is stored (if using useCache), making it is possible to manipulate the response here before
  *                  it is stored.
+ * * sensitivity    Number of pixels before end of element that the plugin will start fetching more items.
+ * * postData       If you want to do a POST request instead of a GET request, supply this argument, either as a
+ *                  function or an object. If not set, a GET request will be made.
  * * useCache       If true, the plugin will use browser storage to keep the state between page loads. If the user
  *                  clicks away from the page and then goes back, all items fetched will be rendered again, and the
  *                  user will see the same view as when he left the page. Requires http://www.jstorage.info/.
@@ -43,23 +46,23 @@
  *                  requires jquery-json: http://code.google.com/p/jquery-json/. Default: false
  * * expiration     How long to keep cache, in hours. Default: 24
  *
- *
- *
  */
 (function( $ ){
 jQuery.fn.autobrowse = function (options)
 {
     var defaults = {
-        url: function (offset, count) { return "/"; },
+        url: function (offset) { return "/"; },
         template: function (response) { return ""; },
         offset: 0,
-        count: 20,
-        totalCount: 0,
+        max: null,
         loader: '<div class="loader"></div>',
-        itemsReturned: null,
-        onComplete: function (response) {},
+        itemsReturned: function (response) { return response.length },
+        complete: function (response) {},
+        finished: function (response) {},
         useCache: false,
-        expiration: 24
+        expiration: 24,
+        sensitivity: 0,
+        postData: null
     };
 
     // flush cache command
@@ -74,13 +77,13 @@ jQuery.fn.autobrowse = function (options)
     // allow non-dynamic url
     if (typeof options.url == "string")
     {
-        var url = options.url
-        options.url = function (offset, count) { return url; }
+        var url = options.url;
+        options.url = function (offset) { return url; }
     }
 
     var getDataLength = function (data)
     {
-        var length = 0
+        var length = 0;
         for (var i = 0; i < data.length; i++)
             length += options.itemsReturned(data[i]);
         return length;
@@ -93,6 +96,12 @@ jQuery.fn.autobrowse = function (options)
         var loading = false;
         var scrollTopUpdateTimer = null;
 
+        var _stopPlugin = function (handler)
+        {
+            jQuery(window).unbind("scroll", handler);
+            options.finished.call(obj);
+        };
+
         var scrollCallback = function ()
         {
             var scrollTop = jQuery(window).scrollTop();
@@ -102,27 +111,22 @@ jQuery.fn.autobrowse = function (options)
             if (scrollTopUpdateTimer)
                 clearTimeout(scrollTopUpdateTimer);
             scrollTopUpdateTimer = setTimeout(function () { jQuery.jStorage.set("autobrowseScrollTop", scrollTop); }, 200);
-            if (objBottom < winBtmPos && !loading && currentOffset <= options.totalCount)
+            if (objBottom  < winBtmPos + options.sensitivity && !loading)
             {
                 var loader = jQuery(options.loader);
                 loader.appendTo(obj);
                 loading = true;
-                jQuery.getJSON(options.url(currentOffset, options.count), function (response) {
-                    // Check if these were the last items to fetch from the server, if so, stop listening
-                    if (options.itemsReturned(response) + currentOffset >= options.totalCount || options.itemsReturned(response) == 0)
-                    {
-                        jQuery(window).unbind("scroll", scrollCallback);
-                    }
-
+                var ajaxCallback = function (response) {
                     if (options.itemsReturned(response) > 0)
                     {
                         // Create the markup and append it to the container
                         try { var markup = options.template(response); }
-                        catch (e) { } // ignore for now
-                        jQuery(markup).appendTo(obj);
+                        catch (e) { console.error(e) } // ignore for now
+                        var newElements = jQuery(markup);
+                        newElements.appendTo(obj);
 
                         // Call user onComplete callback
-                        options.onComplete.call(obj, response);
+                        options.complete.call(obj, response, newElements);
 
                         // Store in local cache if option is set, and everything fetched fitted into the storage
                         if (options.useCache && getDataLength(localData) + options.offset == currentOffset)
@@ -142,12 +146,37 @@ jQuery.fn.autobrowse = function (options)
                     }
 
                     loader.remove();
+                    // Check if these were the last items to fetch from the server, if so, stop listening
+                    if (options.itemsReturned(response) == 0 || (options.max != null && options.itemsReturned(response) + currentOffset >= options.max))
+                    {
+                        _stopPlugin(scrollCallback)
+                    }
                     loading = false;
-                });
+                    scrollCallback()
+                };
+
+                if (options.postData)
+                {
+                    var data = null;
+                    if (typeof options.postData == "function")
+                    {
+                        data = options.postData();
+                    }
+                    else
+                    {
+                        data = options.postData;
+                    }
+
+                    jQuery.post(options.url(currentOffset), data, ajaxCallback, "json");
+                }
+                else
+                {
+                    jQuery.getJSON(options.url(currentOffset), ajaxCallback);
+                }
             }
         };
 
-        var startPlugin = function()
+        var _startPlugin = function()
         {
             if (options.useCache)
                 var autobrowseScrollTop = jQuery.jStorage.get("autobrowseScrollTop");
@@ -179,32 +208,9 @@ jQuery.fn.autobrowse = function (options)
                     var markup = options.template(localData[i]);
                     jQuery(markup).appendTo(obj);
                     currentOffset += options.itemsReturned(localData[i]);
-                    options.onComplete.call(obj, localData[i]);
+                    options.complete.call(obj, localData[i]);
                 }
-                var offsetDifference = jQuery.jStorage.get("autobrowseOffset") - currentOffset;
-                if (offsetDifference > 0)
-                {
-                    // Storage didn't contain enough items, need to fetch them via ajax
-                    var loader = jQuery(options.loader);
-                    loader.appendTo(obj);
-                    loading = true;
-                    jQuery.getJSON(options.url(currentOffset, offsetDifference), function (response) {
-                        // Create the markup and append it to the container
-                        try { var markup = options.template(response); }
-                        catch (e) { } // ignore for now
-                        jQuery(markup).appendTo(obj);
-                        // Call user onComplete callback
-                        options.onComplete.call(obj, response);
-                        currentOffset += options.itemsReturned(response);
-                        loader.remove();
-                        loading = false;
-                        startPlugin();
-                    });
-                }
-                else
-                {
-                    startPlugin();
-                }
+                _startPlugin();
             }
             else
             {
@@ -215,13 +221,13 @@ jQuery.fn.autobrowse = function (options)
                 jQuery.jStorage.set("autobrowseStorageKey", options.url(0, 0));
                 jQuery.jStorage.set("autobrowseStorage", localData);
                 jQuery.jStorage.set("autobrowseScrollTop", 0);
-                startPlugin();
+                _startPlugin();
             }
         }
 
         else
         {
-            startPlugin();
+            _startPlugin();
         }
     });
 };

@@ -1,1 +1,12 @@
+Version 2.0:
+* Added sensitivity option
+* Added option for doing POST instead of GET
+* Added callback for when plugin is done loading content
+* Less mandatory options
+* Simplified API, better naming
+* Removed Ajax fallback when storage didn't fit all items
+* Fixed bug with content not loading when page isn't scrollable after the first fetch.
+
+Also added another demo using the Twitter API
+
 Demo and more info at: http://msjolund.github.com/autobrowse/
