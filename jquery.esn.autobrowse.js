@@ -95,6 +95,7 @@ jQuery.fn.autobrowse = function (options)
         var currentOffset = options.offset;
         var loading = false;
         var scrollTopUpdateTimer = null;
+		var stopping = false;
 
         var _stopPlugin = function (handler)
         {
@@ -110,7 +111,9 @@ jQuery.fn.autobrowse = function (options)
             var winBtmPos = scrollTop + winHeight;
             if (scrollTopUpdateTimer)
                 clearTimeout(scrollTopUpdateTimer);
-            scrollTopUpdateTimer = setTimeout(function () { jQuery.jStorage.set("autobrowseScrollTop", scrollTop); }, 200);
+			if (options.useCache) {
+				scrollTopUpdateTimer = setTimeout(function () { jQuery.jStorage.set("autobrowseScrollTop", scrollTop); }, 200);
+			}
             if (objBottom  < winBtmPos + options.sensitivity && !loading)
             {
                 var loader = jQuery(options.loader);
@@ -150,9 +153,12 @@ jQuery.fn.autobrowse = function (options)
                     if (options.itemsReturned(response) == 0 || (options.max != null && options.itemsReturned(response) + currentOffset >= options.max))
                     {
                         _stopPlugin(scrollCallback)
+						stopping = true;
                     }
                     loading = false;
-                    scrollCallback()
+					if (!stopping) {
+						scrollCallback();
+					}
                 };
 
                 if (options.postData)
