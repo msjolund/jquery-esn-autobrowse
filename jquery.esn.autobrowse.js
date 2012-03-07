@@ -150,7 +150,7 @@ jQuery.fn.autobrowse = function (options)
 
                     loader.remove();
                     // Check if these were the last items to fetch from the server, if so, stop listening
-                    if (options.itemsReturned(response) == 0 || (options.max != null && options.itemsReturned(response) + currentOffset >= options.max))
+                    if (options.itemsReturned(response) == 0 || (options.max != null && currentOffset >= options.max))
                     {
                         _stopPlugin(scrollCallback)
 						stopping = true;
