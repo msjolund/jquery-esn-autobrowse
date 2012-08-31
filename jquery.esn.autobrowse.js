@@ -45,6 +45,8 @@
  *                  available on http://github.com/msjolund/jquery-esn-autobrowse. jStorage also
  *                  requires jquery-json: http://code.google.com/p/jquery-json/. Default: false
  * * expiration     How long to keep cache, in hours. Default: 24
+ * * stopFunction 	a function that will return true if it is necessary to stop autoscrolling
+ * * onError		a function that will be executed on error (HTTP response 500, etc.)
  *
  */
 (function( $ ){
@@ -62,7 +64,9 @@ jQuery.fn.autobrowse = function (options)
         useCache: false,
         expiration: 24,
         sensitivity: 0,
-        postData: null
+        postData: null,
+		stopFunction: function () {},
+		onError: function () {}
     };
 
     // flush cache command
@@ -150,12 +154,13 @@ jQuery.fn.autobrowse = function (options)
 
                     loader.remove();
                     // Check if these were the last items to fetch from the server, if so, stop listening
-                    if (options.itemsReturned(response) == 0 || (options.max != null && currentOffset >= options.max))
+                    if (options.itemsReturned(response) == 0 || (options.max != null && currentOffset >= options.max) || options.stopFunction(response) === true)
                     {
                         _stopPlugin(scrollCallback)
 						stopping = true;
                     }
                     loading = false;
+
 					if (!stopping) {
 						scrollCallback();
 					}
@@ -173,11 +178,11 @@ jQuery.fn.autobrowse = function (options)
                         data = options.postData;
                     }
 
-                    jQuery.post(options.url(currentOffset), data, ajaxCallback, "json");
+                    jQuery.post(options.url(currentOffset), data, ajaxCallback, "json").error(options.onError);
                 }
                 else
                 {
-                    jQuery.getJSON(options.url(currentOffset), ajaxCallback);
+                    jQuery.getJSON(options.url(currentOffset), ajaxCallback).error(options.onError);
                 }
             }
         };
