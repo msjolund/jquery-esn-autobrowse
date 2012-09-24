@@ -46,7 +46,7 @@
  *                  requires jquery-json: http://code.google.com/p/jquery-json/. Default: false
  * * expiration     How long to keep cache, in hours. Default: 24
  * * stopFunction 	a function that will return true if it is necessary to stop autoscrolling
- * * onError		a function that will be executed on error (HTTP response 500, etc.)
+ * * onError		a function that will be executed on error (HTTP response 500, etc.). Only works on jQuery 1.5+
  *
  */
 (function( $ ){
@@ -65,8 +65,8 @@ jQuery.fn.autobrowse = function (options)
         expiration: 24,
         sensitivity: 0,
         postData: null,
-		stopFunction: function () {},
-		onError: function () {}
+	stopFunction: function () {},
+	onError: false
     };
 
     // flush cache command
@@ -178,11 +178,20 @@ jQuery.fn.autobrowse = function (options)
                         data = options.postData;
                     }
 
-                    jQuery.post(options.url(currentOffset), data, ajaxCallback, "json").error(options.onError);
+		    
+		    if(options.onError) {
+			    jQuery.post(options.url(currentOffset), data, ajaxCallback, "json").error(options.onError);
+		    } else {
+			    jQuery.post(options.url(currentOffset), data, ajaxCallback, "json");
+			}
                 }
                 else
                 {
-                    jQuery.getJSON(options.url(currentOffset), ajaxCallback).error(options.onError);
+			if(options.onError) {
+				jQuery.getJSON(options.url(currentOffset), ajaxCallback).error(options.onError);
+			} else {
+				jQuery.getJSON(options.url(currentOffset), ajaxCallback);
+			}
                 }
             }
         };
